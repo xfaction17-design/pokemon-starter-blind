@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pokémon Starter Blind 🎲</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+      min-height: 100vh;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .screen { display: none; flex-direction: column; align-items: center; gap: 20px; padding: 30px; max-width: 500px; width: 100%; }
+    .screen.active { display: flex; }
+    h1 { font-size: 2rem; text-align: center; }
+    h2 { font-size: 1.4rem; text-align: center; color: #ffd700; }
+    input {
+      padding: 12px 20px; border-radius: 12px; border: none;
+      font-size: 1rem; width: 100%; text-align: center;
+      background: rgba(255,255,255,0.15); color: white;
+    }
+    input::placeholder { color: rgba(255,255,255,0.5); }
+    button {
+      padding: 12px 30px; border-radius: 12px; border: none;
+      font-size: 1rem; cursor: pointer; width: 100%;
+      font-weight: bold; transition: transform 0.1s;
+    }
+    button:active { transform: scale(0.97); }
+    .btn-green { background: #4ade80; color: #1a1a2e; }
+    .btn-blue { background: #60a5fa; color: #1a1a2e; }
+    .btn-yellow { background: #ffd700; color: #1a1a2e; }
+    .btn-red { background: #f87171; color: #1a1a2e; }
+    .code-box {
+      background: rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 20px 30px;
+      font-size: 2.5rem; font-weight: bold;
+      letter-spacing: 8px; color: #ffd700;
+      text-align: center;
+    }
+    .types { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .type-btn {
+      width: 130px; height: 130px; border-radius: 20px;
+      font-size: 2rem; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+      cursor: pointer; border: none; transition: transform 0.15s, box-shadow 0.15s;
+      font-weight: bold;
+    }
+    .type-btn:hover { transform: scale(1.07); box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+    .type-btn.fire { background: linear-gradient(135deg, #ff6b35, #f7c59f); color: #1a1a2e; }
+    .type-btn.water { background: linear-gradient(135deg, #4fc3f7, #0288d1); color: white; }
+    .type-btn.grass { background: linear-gradient(135deg, #81c784, #2e7d32); color: white; }
+    .type-btn span { font-size: 0.9rem; }
+    .pokemon-card {
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px; padding: 20px;
+      text-align: center; width: 200px;
+    }
+    .pokemon-card img { width: 120px; height: 120px; image-rendering: pixelated; }
+    .pokemon-card h3 { font-size: 1.2rem; color: #ffd700; margin-top: 8px; }
+    .pokemon-card p { font-size: 0.85rem; color: rgba(255,255,255,0.7); }
+    .reveal-row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+    .status { color: rgba(255,255,255,0.7); font-size: 0.9rem; text-align: center; }
+    .error { color: #f87171; font-size: 0.9rem; text-align: center; }
+    .badge {
+      background: rgba(255,255,255,0.15);
+      padding: 6px 16px; border-radius: 20px;
+      font-size: 0.85rem; color: rgba(255,255,255,0.8);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ÉCRAN 1 : Accueil -->
+<div class="screen active" id="screen-home">
+  <h1>🎲 Pokémon<br/>Starter Blind</h1>
+  <p style="text-align:center;color:rgba(255,255,255,0.7)">Choisis un type… sans savoir quel Pokémon tu vas recevoir !</p>
+  <input type="text" id="home-name" placeholder="Ton pseudo" maxlength="20"/>
+  <button class="btn-green" onclick="goCreate()">🏠 Créer une salle</button>
+  <button class="btn-blue" onclick="goJoin()">🔗 Rejoindre une salle</button>
+</div>
+
+<!-- ÉCRAN 2 : Rejoindre -->
+<div class="screen" id="screen-join">
+  <h2>Rejoindre une salle</h2>
+  <input type="text" id="join-name" placeholder="Ton pseudo" maxlength="20"/>
+  <input type="text" id="join-code" placeholder="Code de la salle" maxlength="6" style="text-transform:uppercase;letter-spacing:4px;font-size:1.3rem"/>
+  <button class="btn-blue" onclick="joinRoom()">Rejoindre →</button>
+  <button class="btn-red" onclick="showScreen('screen-home')">← Retour</button>
+  <p class="error" id="join-error"></p>
+</div>
+
+<!-- ÉCRAN 3 : Attente -->
+<div class="screen" id="screen-waiting">
+  <h2>Salle créée ! 🎉</h2>
+  <p class="status">Partage ce code à ton ami :</p>
+  <div class="code-box" id="room-code-display">------</div>
+  <p class="status" id="waiting-status">En attente de l'adversaire...</p>
+</div>
+
+<!-- ÉCRAN 4 : Choix du type -->
+<div class="screen" id="screen-choose">
+  <h2>Choisis ton type !</h2>
+  <p class="status">Tu ne sauras pas quel Pokémon tu vas recevoir 👀</p>
+  <div class="badge" id="vs-label">VS ???</div>
+  <div class="types">
+    <button class="type-btn fire" onclick="chooseType('fire')">🔥<span>Feu</span></button>
+    <button class="type-btn water" onclick="chooseType('water')">💧<span>Eau</span></button>
+    <button class="type-btn grass" onclick="chooseType('grass')">🌱<span>Plante</span></button>
+  </div>
+  <p class="status" id="choose-status"></p>
+</div>
+
+<!-- ÉCRAN 5 : Révélation -->
+<div class="screen" id="screen-reveal">
+  <h2>🎉 Révélation !</h2>
+  <div class="reveal-row" id="reveal-row"></div>
+  <button class="btn-yellow" onclick="playAgain()">🔄 Rejouer</button>
+  <button class="btn-red" onclick="location.reload()">🏠 Accueil</button>
+</div>
+
+<script>
+  const WS_URL = 'YOUR_RENDER_URL'; // ← on remplacera ça après Render
+  let ws, myName, myPlayerId, myType, opponentName;
+
+  const typeMap = { fire: 'fire', water: 'water', grass: 'grass' };
+  const typeLabel = { fire: '🔥 Feu', water: '💧 Eau', grass: '🌱 Plante' };
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function connect(callback) {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = callback;
+    ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+    ws.onerror = () => alert('Erreur de connexion au serveur.');
+  }
+
+  function goCreate() {
+    myName = document.getElementById('home-name').value.trim() || 'Joueur 1';
+    connect(() => ws.send(JSON.stringify({ type: 'create_room', name: myName })));
+  }
+
+  function goJoin() {
+    myName = document.getElementById('home-name').value.trim() || 'Joueur 2';
+    showScreen('screen-join');
+  }
+
+  function joinRoom() {
+    const code = document.getElementById('join-code').value.trim().toUpperCase();
+    myName = document.getElementById('join-name').value.trim() || 'Joueur 2';
+    if (!code) return;
+    connect(() => ws.send(JSON.stringify({ type: 'join_room', roomCode: code, name: myName })));
+  }
+
+  function chooseType(type) {
+    myType = type;
+    document.querySelectorAll('.type-btn').forEach(b => b.disabled = true);
+    document.getElementById('choose-status').textContent = `Tu as choisi ${typeLabel[type]} ! En attente de l'adversaire...`;
+    ws.send(JSON.stringify({ type: 'choose_type', pokemonType: type }));
+  }
+
+  function playAgain() {
+    ws.send(JSON.stringify({ type: 'play_again' }));
+  }
+
+  async function fetchRandomPokemonOfType(typeName) {
+    const res = await fetch(`https://pokeapi.co/api/v2/type/${typeName}`);
+    const data = await res.json();
+    const list = data.pokemon;
+    const random = list[Math.floor(Math.random() * list.length)].pokemon;
+    const pRes = await fetch(random.url);
+    const pData = await pRes.json();
+    return {
+      name: pData.name.charAt(0).toUpperCase() + pData.name.slice(1),
+      sprite: pData.sprites.front_default || pData.sprites.other['official-artwork'].front_default,
+      types: pData.types.map(t => t.type.name).join(', ')
+    };
+  }
+
+  async function showReveal(choices, names) {
+    showScreen('screen-reveal');
+    const row = document.getElementById('reveal-row');
+    row.innerHTML = '<p style="color:rgba(255,255,255,0.6)">Chargement des Pokémon...</p>';
+
+    const entries = Object.entries(choices); // [['player1', 'fire'], ['player2', 'water']]
+    const cards = await Promise.all(entries.map(async ([pid, type]) => {
+      const poke = await fetchRandomPokemonOfType(type);
+      return { pid, type, poke, name: names[pid] };
+    }));
+
+    row.innerHTML = '';
+    cards.forEach(({ pid, type, poke, name }) => {
+      const isMe = pid === myPlayerId;
+      const card = document.createElement('div');
+      card.className = 'pokemon-card';
+      card.innerHTML = `
+        <div style="font-size:0.8rem;color:rgba(255,255,255,0.6)">${isMe ? '👤 Toi' : '🎮 Adversaire'}</div>
+        <div style="font-weight:bold;margin-bottom:8px">${name}</div>
+        <img src="${poke.sprite}" alt="${poke.name}"/>
+        <h3>${poke.name}</h3>
+        <p>${typeLabel[type]}</p>
+      `;
+      row.appendChild(card);
+    });
+  }
+
+  function handleMessage(data) {
+    if (data.type === 'room_created') {
+      myPlayerId = 'player1';
+      document.getElementById('room-code-display').textContent = data.roomCode;
+      showScreen('screen-waiting');
+    }
+    else if (data.type === 'room_joined') {
+      myPlayerId = 'player2';
+      showScreen('screen-choose');
+    }
+    else if (data.type === 'opponent_joined') {
+      opponentName = data.opponentName;
+      document.getElementById('waiting-status').textContent = `${opponentName} a rejoint ! 🎉`;
+      document.getElementById('vs-label').textContent = `VS ${opponentName}`;
+      setTimeout(() => showScreen('screen-choose'), 1200);
+    }
+    else if (data.type === 'error') {
+      document.getElementById('join-error').textContent = data.message;
+    }
+    else if (data.type === 'waiting_opponent') {
+      // déjà géré dans chooseType
+    }
+    else if (data.type === 'opponent_chose') {
+      document.getElementById('choose-status').textContent += ' (L\'adversaire a aussi choisi !)';
+    }
+    else if (data.type === 'reveal') {
+      showReveal(data.choices, data.names);
+    }
+    else if (data.type === 'new_round') {
+      myType = null;
+      document.querySelectorAll('.type-btn').forEach(b => b.disabled = false);
+      document.getElementById('choose-status').textContent = '';
+      showScreen('screen-choose');
+    }
+    else if (data.type === 'opponent_left') {
+      alert('Ton adversaire a quitté la partie.');
+      location.reload();
+    }
+  }
+</script>
+</body>
+</html>
