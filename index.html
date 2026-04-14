@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Pokémon Starter Blind 🎲</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -80,8 +81,8 @@
   <h1>🎲 Pokémon<br/>Starter Blind</h1>
   <p style="text-align:center;color:rgba(255,255,255,0.7)">Choisis un type… sans savoir quel Pokémon tu vas recevoir !</p>
   <input type="text" id="home-name" placeholder="Ton pseudo" maxlength="20"/>
-  <button class="btn-green" onclick="goCreate()">🏠 Créer une salle</button>
-  <button class="btn-blue" onclick="goJoin()">🔗 Rejoindre une salle</button>
+  <button class="btn-green" onclick="createRoom()">🏠 Créer une salle</button>
+  <button class="btn-blue" onclick="showScreen('screen-join')">🔗 Rejoindre une salle</button>
 </div>
 
 <!-- ÉCRAN 2 : Rejoindre -->
@@ -124,10 +125,11 @@
 </div>
 
 <script>
-  const WS_URL = 'YOUR_RENDER_URL'; // ← on remplacera ça après Render
-  let ws, myName, myPlayerId, myType, opponentName;
+  const SUPABASE_URL = 'https://bfpdesygkcapznbchiix.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_auwHVEybmwYsNV8pMNYrIQ_NgHYY780';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const typeMap = { fire: 'fire', water: 'water', grass: 'grass' };
+  let myName, myRole, roomCode, subscription;
   const typeLabel = { fire: '🔥 Feu', water: '💧 Eau', grass: '🌱 Plante' };
 
   function showScreen(id) {
@@ -135,39 +137,97 @@
     document.getElementById(id).classList.add('active');
   }
 
-  function connect(callback) {
-    ws = new WebSocket(WS_URL);
-    ws.onopen = callback;
-    ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
-    ws.onerror = () => alert('Erreur de connexion au serveur.');
+  function generateCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
   }
 
-  function goCreate() {
+  async function createRoom() {
     myName = document.getElementById('home-name').value.trim() || 'Joueur 1';
-    connect(() => ws.send(JSON.stringify({ type: 'create_room', name: myName })));
+    myRole = 'player1';
+    roomCode = generateCode();
+
+    const { error } = await sb.from('rooms').insert({
+      code: roomCode,
+      player1_name: myName,
+      status: 'waiting'
+    });
+
+    if (error) { alert('Erreur: ' + error.message); return; }
+
+    document.getElementById('room-code-display').textContent = roomCode;
+    showScreen('screen-waiting');
+    subscribeToRoom();
   }
 
-  function goJoin() {
-    myName = document.getElementById('home-name').value.trim() || 'Joueur 2';
-    showScreen('screen-join');
-  }
-
-  function joinRoom() {
-    const code = document.getElementById('join-code').value.trim().toUpperCase();
+  async function joinRoom() {
     myName = document.getElementById('join-name').value.trim() || 'Joueur 2';
+    const code = document.getElementById('join-code').value.trim().toUpperCase();
     if (!code) return;
-    connect(() => ws.send(JSON.stringify({ type: 'join_room', roomCode: code, name: myName })));
+
+    const { data, error } = await sb.from('rooms').select('*').eq('code', code).single();
+    if (error || !data) {
+      document.getElementById('join-error').textContent = 'Salle introuvable !';
+      return;
+    }
+    if (data.player2_name) {
+      document.getElementById('join-error').textContent = 'Salle déjà pleine !';
+      return;
+    }
+
+    myRole = 'player2';
+    roomCode = code;
+
+    await sb.from('rooms').update({
+      player2_name: myName,
+      status: 'choosing'
+    }).eq('code', code);
+
+    document.getElementById('vs-label').textContent = `VS ${data.player1_name}`;
+    showScreen('screen-choose');
+    subscribeToRoom();
   }
 
-  function chooseType(type) {
-    myType = type;
+  function subscribeToRoom() {
+    subscription = sb.channel('room:' + roomCode)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'rooms',
+        filter: `code=eq.${roomCode}`
+      }, (payload) => {
+        handleRoomUpdate(payload.new);
+      })
+      .subscribe();
+  }
+
+  function handleRoomUpdate(room) {
+    if (room.status === 'choosing' && myRole === 'player1') {
+      document.getElementById('vs-label').textContent = `VS ${room.player2_name}`;
+      showScreen('screen-choose');
+    }
+    if (room.status === 'reveal') {
+      showReveal(room);
+    }
+    if (room.status === 'choosing' && myRole === 'player2') {
+      // reset pour rejouer
+      document.querySelectorAll('.type-btn').forEach(b => b.disabled = false);
+      document.getElementById('choose-status').textContent = '';
+      showScreen('screen-choose');
+    }
+  }
+
+  async function chooseType(type) {
     document.querySelectorAll('.type-btn').forEach(b => b.disabled = true);
     document.getElementById('choose-status').textContent = `Tu as choisi ${typeLabel[type]} ! En attente de l'adversaire...`;
-    ws.send(JSON.stringify({ type: 'choose_type', pokemonType: type }));
-  }
 
-  function playAgain() {
-    ws.send(JSON.stringify({ type: 'play_again' }));
+    const field = myRole === 'player1' ? 'player1_choice' : 'player2_choice';
+    await sb.from('rooms').update({ [field]: type }).eq('code', roomCode);
+
+    // Vérifier si les deux ont choisi
+    const { data } = await sb.from('rooms').select('*').eq('code', roomCode).single();
+    if (data.player1_choice && data.player2_choice) {
+      await sb.from('rooms').update({ status: 'reveal' }).eq('code', roomCode);
+    }
   }
 
   async function fetchRandomPokemonOfType(typeName) {
@@ -179,25 +239,28 @@
     const pData = await pRes.json();
     return {
       name: pData.name.charAt(0).toUpperCase() + pData.name.slice(1),
-      sprite: pData.sprites.front_default || pData.sprites.other['official-artwork'].front_default,
-      types: pData.types.map(t => t.type.name).join(', ')
+      sprite: pData.sprites.other['official-artwork'].front_default || pData.sprites.front_default,
     };
   }
 
-  async function showReveal(choices, names) {
+  async function showReveal(room) {
     showScreen('screen-reveal');
     const row = document.getElementById('reveal-row');
     row.innerHTML = '<p style="color:rgba(255,255,255,0.6)">Chargement des Pokémon...</p>';
 
-    const entries = Object.entries(choices); // [['player1', 'fire'], ['player2', 'water']]
-    const cards = await Promise.all(entries.map(async ([pid, type]) => {
-      const poke = await fetchRandomPokemonOfType(type);
-      return { pid, type, poke, name: names[pid] };
+    const players = [
+      { role: 'player1', name: room.player1_name, type: room.player1_choice },
+      { role: 'player2', name: room.player2_name, type: room.player2_choice },
+    ];
+
+    const cards = await Promise.all(players.map(async (p) => {
+      const poke = await fetchRandomPokemonOfType(p.type);
+      return { ...p, poke };
     }));
 
     row.innerHTML = '';
-    cards.forEach(({ pid, type, poke, name }) => {
-      const isMe = pid === myPlayerId;
+    cards.forEach(({ role, name, type, poke }) => {
+      const isMe = role === myRole;
       const card = document.createElement('div');
       card.className = 'pokemon-card';
       card.innerHTML = `
@@ -211,44 +274,12 @@
     });
   }
 
-  function handleMessage(data) {
-    if (data.type === 'room_created') {
-      myPlayerId = 'player1';
-      document.getElementById('room-code-display').textContent = data.roomCode;
-      showScreen('screen-waiting');
-    }
-    else if (data.type === 'room_joined') {
-      myPlayerId = 'player2';
-      showScreen('screen-choose');
-    }
-    else if (data.type === 'opponent_joined') {
-      opponentName = data.opponentName;
-      document.getElementById('waiting-status').textContent = `${opponentName} a rejoint ! 🎉`;
-      document.getElementById('vs-label').textContent = `VS ${opponentName}`;
-      setTimeout(() => showScreen('screen-choose'), 1200);
-    }
-    else if (data.type === 'error') {
-      document.getElementById('join-error').textContent = data.message;
-    }
-    else if (data.type === 'waiting_opponent') {
-      // déjà géré dans chooseType
-    }
-    else if (data.type === 'opponent_chose') {
-      document.getElementById('choose-status').textContent += ' (L\'adversaire a aussi choisi !)';
-    }
-    else if (data.type === 'reveal') {
-      showReveal(data.choices, data.names);
-    }
-    else if (data.type === 'new_round') {
-      myType = null;
-      document.querySelectorAll('.type-btn').forEach(b => b.disabled = false);
-      document.getElementById('choose-status').textContent = '';
-      showScreen('screen-choose');
-    }
-    else if (data.type === 'opponent_left') {
-      alert('Ton adversaire a quitté la partie.');
-      location.reload();
-    }
+  async function playAgain() {
+    await sb.from('rooms').update({
+      player1_choice: null,
+      player2_choice: null,
+      status: 'choosing'
+    }).eq('code', roomCode);
   }
 </script>
 </body>
