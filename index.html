@@ -108,11 +108,40 @@
   <h2>Choisis ton type !</h2>
   <p class="status">Tu ne sauras pas quel Pokémon tu vas recevoir 👀</p>
   <div class="badge" id="vs-label">VS ???</div>
-  <div class="types">
-    <button class="type-btn fire" onclick="chooseType('fire')">🔥<span>Feu</span></button>
-    <button class="type-btn water" onclick="chooseType('water')">💧<span>Eau</span></button>
-    <button class="type-btn grass" onclick="chooseType('grass')">🌱<span>Plante</span></button>
-  </div>
+ function renderTypeButtons() {
+  const container = document.getElementById('types-container');
+  container.innerHTML = '';
+  currentTypes.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = `type-btn`;
+    btn.style.background = typeColors[t.id] || '#555';
+    btn.style.color = 'white';
+    btn.innerHTML = `${t.emoji}<span>${t.label}</span>`;
+    btn.onclick = () => chooseType(t.id);
+    container.appendChild(btn);
+  });
+}
+
+const typeColors = {
+  normal: 'linear-gradient(135deg, #9e9e9e, #616161)',
+  fire: 'linear-gradient(135deg, #ff6b35, #f7c59f)',
+  water: 'linear-gradient(135deg, #4fc3f7, #0288d1)',
+  grass: 'linear-gradient(135deg, #81c784, #2e7d32)',
+  electric: 'linear-gradient(135deg, #fff176, #f9a825)',
+  ice: 'linear-gradient(135deg, #e0f7fa, #0097a7)',
+  fighting: 'linear-gradient(135deg, #ef9a9a, #c62828)',
+  poison: 'linear-gradient(135deg, #ce93d8, #6a1b9a)',
+  ground: 'linear-gradient(135deg, #ffcc80, #e65100)',
+  flying: 'linear-gradient(135deg, #b3e5fc, #0277bd)',
+  psychic: 'linear-gradient(135deg, #f48fb1, #ad1457)',
+  bug: 'linear-gradient(135deg, #c5e1a5, #558b2f)',
+  rock: 'linear-gradient(135deg, #bcaaa4, #4e342e)',
+  ghost: 'linear-gradient(135deg, #b39ddb, #311b92)',
+  dragon: 'linear-gradient(135deg, #90caf9, #1565c0)',
+  dark: 'linear-gradient(135deg, #78909c, #263238)',
+  steel: 'linear-gradient(135deg, #cfd8dc, #546e7a)',
+  fairy: 'linear-gradient(135deg, #f8bbd0, #c2185b)',
+};
   <p class="status" id="choose-status"></p>
 </div>
 
@@ -130,8 +159,36 @@
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let myName, myRole, roomCode, subscription;
-  const typeLabel = { fire: '🔥 Feu', water: '💧 Eau', grass: '🌱 Plante' };
+const ALL_TYPES = [
+  { id: 'normal',   label: 'Normal',    emoji: '⬜' },
+  { id: 'fire',     label: 'Feu',       emoji: '🔥' },
+  { id: 'water',    label: 'Eau',       emoji: '💧' },
+  { id: 'grass',    label: 'Plante',    emoji: '🌱' },
+  { id: 'electric', label: 'Électrik',  emoji: '⚡' },
+  { id: 'ice',      label: 'Glace',     emoji: '❄️' },
+  { id: 'fighting', label: 'Combat',    emoji: '🥊' },
+  { id: 'poison',   label: 'Poison',    emoji: '☠️' },
+  { id: 'ground',   label: 'Sol',       emoji: '🌍' },
+  { id: 'flying',   label: 'Vol',       emoji: '🦅' },
+  { id: 'psychic',  label: 'Psy',       emoji: '🔮' },
+  { id: 'bug',      label: 'Insecte',   emoji: '🐛' },
+  { id: 'rock',     label: 'Roche',     emoji: '🪨' },
+  { id: 'ghost',    label: 'Spectre',   emoji: '👻' },
+  { id: 'dragon',   label: 'Dragon',    emoji: '🐉' },
+  { id: 'dark',     label: 'Ténèbres',  emoji: '🌑' },
+  { id: 'steel',    label: 'Acier',     emoji: '⚙️' },
+  { id: 'fairy',    label: 'Fée',       emoji: '🧚' },
+];
 
+let typeLabel = {};
+let currentTypes = [];
+
+function pickRandomTypes() {
+  const shuffled = [...ALL_TYPES].sort(() => Math.random() - 0.5);
+  currentTypes = shuffled.slice(0, 3);
+  typeLabel = {};
+  currentTypes.forEach(t => typeLabel[t.id] = `${t.emoji} ${t.label}`);
+}
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -142,6 +199,8 @@
   }
 
   async function createRoom() {
+    pickRandomTypes();
+renderTypeButtons();
     myName = document.getElementById('home-name').value.trim() || 'Joueur 1';
     myRole = 'player1';
     roomCode = generateCode();
@@ -160,6 +219,7 @@
   }
 
   async function joinRoom() {
+    
     myName = document.getElementById('join-name').value.trim() || 'Joueur 2';
     const code = document.getElementById('join-code').value.trim().toUpperCase();
     if (!code) return;
@@ -184,6 +244,8 @@
 
     document.getElementById('vs-label').textContent = `VS ${data.player1_name}`;
     showScreen('screen-choose');
+    pickRandomTypes();
+renderTypeButtons();
     subscribeToRoom();
   }
 
@@ -275,6 +337,8 @@
   }
 
   async function playAgain() {
+    pickRandomTypes();
+renderTypeButtons();
     await sb.from('rooms').update({
       player1_choice: null,
       player2_choice: null,
