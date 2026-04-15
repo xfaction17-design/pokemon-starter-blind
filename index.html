@@ -287,7 +287,14 @@
 
     const { data } = await sb.from('rooms').select('*').eq('code', roomCode).single();
     if (data.player1_choice && data.player2_choice) {
-      await sb.from('rooms').update({ status: 'reveal' }).eq('code', roomCode);
+      // On tire les Pokémon une seule fois et on les stocke dans Supabase
+      const poke1 = await fetchRandomPokemonOfType(data.player1_choice);
+      const poke2 = await fetchRandomPokemonOfType(data.player2_choice);
+      await sb.from('rooms').update({
+        player1_pokemon: JSON.stringify(poke1),
+        player2_pokemon: JSON.stringify(poke2),
+        status: 'reveal'
+      }).eq('code', roomCode);
     }
   }
 
@@ -310,17 +317,12 @@
     row.innerHTML = '<p style="color:rgba(255,255,255,0.6)">Chargement des Pokémon...</p>';
 
     const players = [
-      { role: 'player1', name: room.player1_name, type: room.player1_choice },
-      { role: 'player2', name: room.player2_name, type: room.player2_choice },
+      { role: 'player1', name: room.player1_name, type: room.player1_choice, poke: JSON.parse(room.player1_pokemon) },
+      { role: 'player2', name: room.player2_name, type: room.player2_choice, poke: JSON.parse(room.player2_pokemon) },
     ];
 
-    const cards = await Promise.all(players.map(async (p) => {
-      const poke = await fetchRandomPokemonOfType(p.type);
-      return { ...p, poke };
-    }));
-
     row.innerHTML = '';
-    cards.forEach(({ role, name, type, poke }) => {
+    players.forEach(({ role, name, type, poke }) => {
       const isMe = role === myRole;
       const card = document.createElement('div');
       card.className = 'pokemon-card';
@@ -341,6 +343,8 @@
     await sb.from('rooms').update({
       player1_choice: null,
       player2_choice: null,
+      player1_pokemon: null,
+      player2_pokemon: null,
       status: 'choosing'
     }).eq('code', roomCode);
   }
