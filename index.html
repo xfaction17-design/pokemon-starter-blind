@@ -260,24 +260,19 @@
       .subscribe();
   }
 
-  function handleRoomUpdate(room) {
+function handleRoomUpdate(room) {
     if (room.status === 'choosing' && myRole === 'player1') {
       document.getElementById('vs-label').textContent = `VS ${room.player2_name}`;
-      pickRandomTypes();
-      renderTypeButtons();
       showScreen('screen-choose');
     }
     if (room.status === 'reveal') {
       showReveal(room);
     }
     if (room.status === 'choosing' && myRole === 'player2') {
-      pickRandomTypes();
-      renderTypeButtons();
       document.getElementById('choose-status').textContent = '';
       showScreen('screen-choose');
     }
   }
-
   async function chooseType(type) {
     document.querySelectorAll('.type-btn').forEach(b => b.disabled = true);
     document.getElementById('choose-status').textContent = `Tu as choisi ${typeLabel[type]} ! En attente de l'adversaire...`;
