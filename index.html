@@ -49,12 +49,9 @@
       font-size: 2rem; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 8px;
       cursor: pointer; border: none; transition: transform 0.15s, box-shadow 0.15s;
-      font-weight: bold;
+      font-weight: bold; color: white;
     }
     .type-btn:hover { transform: scale(1.07); box-shadow: 0 0 20px rgba(255,255,255,0.3); }
-    .type-btn.fire { background: linear-gradient(135deg, #ff6b35, #f7c59f); color: #1a1a2e; }
-    .type-btn.water { background: linear-gradient(135deg, #4fc3f7, #0288d1); color: white; }
-    .type-btn.grass { background: linear-gradient(135deg, #81c784, #2e7d32); color: white; }
     .type-btn span { font-size: 0.9rem; }
     .pokemon-card {
       background: rgba(255,255,255,0.1);
@@ -108,40 +105,7 @@
   <h2>Choisis ton type !</h2>
   <p class="status">Tu ne sauras pas quel Pokémon tu vas recevoir 👀</p>
   <div class="badge" id="vs-label">VS ???</div>
- function renderTypeButtons() {
-  const container = document.getElementById('types-container');
-  container.innerHTML = '';
-  currentTypes.forEach(t => {
-    const btn = document.createElement('button');
-    btn.className = `type-btn`;
-    btn.style.background = typeColors[t.id] || '#555';
-    btn.style.color = 'white';
-    btn.innerHTML = `${t.emoji}<span>${t.label}</span>`;
-    btn.onclick = () => chooseType(t.id);
-    container.appendChild(btn);
-  });
-}
-
-const typeColors = {
-  normal: 'linear-gradient(135deg, #9e9e9e, #616161)',
-  fire: 'linear-gradient(135deg, #ff6b35, #f7c59f)',
-  water: 'linear-gradient(135deg, #4fc3f7, #0288d1)',
-  grass: 'linear-gradient(135deg, #81c784, #2e7d32)',
-  electric: 'linear-gradient(135deg, #fff176, #f9a825)',
-  ice: 'linear-gradient(135deg, #e0f7fa, #0097a7)',
-  fighting: 'linear-gradient(135deg, #ef9a9a, #c62828)',
-  poison: 'linear-gradient(135deg, #ce93d8, #6a1b9a)',
-  ground: 'linear-gradient(135deg, #ffcc80, #e65100)',
-  flying: 'linear-gradient(135deg, #b3e5fc, #0277bd)',
-  psychic: 'linear-gradient(135deg, #f48fb1, #ad1457)',
-  bug: 'linear-gradient(135deg, #c5e1a5, #558b2f)',
-  rock: 'linear-gradient(135deg, #bcaaa4, #4e342e)',
-  ghost: 'linear-gradient(135deg, #b39ddb, #311b92)',
-  dragon: 'linear-gradient(135deg, #90caf9, #1565c0)',
-  dark: 'linear-gradient(135deg, #78909c, #263238)',
-  steel: 'linear-gradient(135deg, #cfd8dc, #546e7a)',
-  fairy: 'linear-gradient(135deg, #f8bbd0, #c2185b)',
-};
+  <div class="types" id="types-container"></div>
   <p class="status" id="choose-status"></p>
 </div>
 
@@ -159,36 +123,71 @@ const typeColors = {
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let myName, myRole, roomCode, subscription;
-const ALL_TYPES = [
-  { id: 'normal',   label: 'Normal',    emoji: '⬜' },
-  { id: 'fire',     label: 'Feu',       emoji: '🔥' },
-  { id: 'water',    label: 'Eau',       emoji: '💧' },
-  { id: 'grass',    label: 'Plante',    emoji: '🌱' },
-  { id: 'electric', label: 'Électrik',  emoji: '⚡' },
-  { id: 'ice',      label: 'Glace',     emoji: '❄️' },
-  { id: 'fighting', label: 'Combat',    emoji: '🥊' },
-  { id: 'poison',   label: 'Poison',    emoji: '☠️' },
-  { id: 'ground',   label: 'Sol',       emoji: '🌍' },
-  { id: 'flying',   label: 'Vol',       emoji: '🦅' },
-  { id: 'psychic',  label: 'Psy',       emoji: '🔮' },
-  { id: 'bug',      label: 'Insecte',   emoji: '🐛' },
-  { id: 'rock',     label: 'Roche',     emoji: '🪨' },
-  { id: 'ghost',    label: 'Spectre',   emoji: '👻' },
-  { id: 'dragon',   label: 'Dragon',    emoji: '🐉' },
-  { id: 'dark',     label: 'Ténèbres',  emoji: '🌑' },
-  { id: 'steel',    label: 'Acier',     emoji: '⚙️' },
-  { id: 'fairy',    label: 'Fée',       emoji: '🧚' },
-];
+  let typeLabel = {};
+  let currentTypes = [];
 
-let typeLabel = {};
-let currentTypes = [];
+  const ALL_TYPES = [
+    { id: 'normal',   label: 'Normal',   emoji: '⬜' },
+    { id: 'fire',     label: 'Feu',      emoji: '🔥' },
+    { id: 'water',    label: 'Eau',      emoji: '💧' },
+    { id: 'grass',    label: 'Plante',   emoji: '🌱' },
+    { id: 'electric', label: 'Électrik', emoji: '⚡' },
+    { id: 'ice',      label: 'Glace',    emoji: '❄️' },
+    { id: 'fighting', label: 'Combat',   emoji: '🥊' },
+    { id: 'poison',   label: 'Poison',   emoji: '☠️' },
+    { id: 'ground',   label: 'Sol',      emoji: '🌍' },
+    { id: 'flying',   label: 'Vol',      emoji: '🦅' },
+    { id: 'psychic',  label: 'Psy',      emoji: '🔮' },
+    { id: 'bug',      label: 'Insecte',  emoji: '🐛' },
+    { id: 'rock',     label: 'Roche',    emoji: '🪨' },
+    { id: 'ghost',    label: 'Spectre',  emoji: '👻' },
+    { id: 'dragon',   label: 'Dragon',   emoji: '🐉' },
+    { id: 'dark',     label: 'Ténèbres', emoji: '🌑' },
+    { id: 'steel',    label: 'Acier',    emoji: '⚙️' },
+    { id: 'fairy',    label: 'Fée',      emoji: '🧚' },
+  ];
 
-function pickRandomTypes() {
-  const shuffled = [...ALL_TYPES].sort(() => Math.random() - 0.5);
-  currentTypes = shuffled.slice(0, 3);
-  typeLabel = {};
-  currentTypes.forEach(t => typeLabel[t.id] = `${t.emoji} ${t.label}`);
-}
+  const typeColors = {
+    normal:   'linear-gradient(135deg, #9e9e9e, #616161)',
+    fire:     'linear-gradient(135deg, #ff6b35, #f7c59f)',
+    water:    'linear-gradient(135deg, #4fc3f7, #0288d1)',
+    grass:    'linear-gradient(135deg, #81c784, #2e7d32)',
+    electric: 'linear-gradient(135deg, #fff176, #f9a825)',
+    ice:      'linear-gradient(135deg, #e0f7fa, #0097a7)',
+    fighting: 'linear-gradient(135deg, #ef9a9a, #c62828)',
+    poison:   'linear-gradient(135deg, #ce93d8, #6a1b9a)',
+    ground:   'linear-gradient(135deg, #ffcc80, #e65100)',
+    flying:   'linear-gradient(135deg, #b3e5fc, #0277bd)',
+    psychic:  'linear-gradient(135deg, #f48fb1, #ad1457)',
+    bug:      'linear-gradient(135deg, #c5e1a5, #558b2f)',
+    rock:     'linear-gradient(135deg, #bcaaa4, #4e342e)',
+    ghost:    'linear-gradient(135deg, #b39ddb, #311b92)',
+    dragon:   'linear-gradient(135deg, #90caf9, #1565c0)',
+    dark:     'linear-gradient(135deg, #78909c, #263238)',
+    steel:    'linear-gradient(135deg, #cfd8dc, #546e7a)',
+    fairy:    'linear-gradient(135deg, #f8bbd0, #c2185b)',
+  };
+
+  function pickRandomTypes() {
+    const shuffled = [...ALL_TYPES].sort(() => Math.random() - 0.5);
+    currentTypes = shuffled.slice(0, 3);
+    typeLabel = {};
+    currentTypes.forEach(t => typeLabel[t.id] = `${t.emoji} ${t.label}`);
+  }
+
+  function renderTypeButtons() {
+    const container = document.getElementById('types-container');
+    container.innerHTML = '';
+    currentTypes.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'type-btn';
+      btn.style.background = typeColors[t.id] || '#555';
+      btn.innerHTML = `${t.emoji}<span>${t.label}</span>`;
+      btn.onclick = () => chooseType(t.id);
+      container.appendChild(btn);
+    });
+  }
+
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -199,11 +198,11 @@ function pickRandomTypes() {
   }
 
   async function createRoom() {
-    pickRandomTypes();
-renderTypeButtons();
     myName = document.getElementById('home-name').value.trim() || 'Joueur 1';
     myRole = 'player1';
     roomCode = generateCode();
+    pickRandomTypes();
+    renderTypeButtons();
 
     const { error } = await sb.from('rooms').insert({
       code: roomCode,
@@ -219,7 +218,6 @@ renderTypeButtons();
   }
 
   async function joinRoom() {
-    
     myName = document.getElementById('join-name').value.trim() || 'Joueur 2';
     const code = document.getElementById('join-code').value.trim().toUpperCase();
     if (!code) return;
@@ -242,10 +240,10 @@ renderTypeButtons();
       status: 'choosing'
     }).eq('code', code);
 
+    pickRandomTypes();
+    renderTypeButtons();
     document.getElementById('vs-label').textContent = `VS ${data.player1_name}`;
     showScreen('screen-choose');
-    pickRandomTypes();
-renderTypeButtons();
     subscribeToRoom();
   }
 
@@ -265,14 +263,16 @@ renderTypeButtons();
   function handleRoomUpdate(room) {
     if (room.status === 'choosing' && myRole === 'player1') {
       document.getElementById('vs-label').textContent = `VS ${room.player2_name}`;
+      pickRandomTypes();
+      renderTypeButtons();
       showScreen('screen-choose');
     }
     if (room.status === 'reveal') {
       showReveal(room);
     }
     if (room.status === 'choosing' && myRole === 'player2') {
-      // reset pour rejouer
-      document.querySelectorAll('.type-btn').forEach(b => b.disabled = false);
+      pickRandomTypes();
+      renderTypeButtons();
       document.getElementById('choose-status').textContent = '';
       showScreen('screen-choose');
     }
@@ -285,7 +285,6 @@ renderTypeButtons();
     const field = myRole === 'player1' ? 'player1_choice' : 'player2_choice';
     await sb.from('rooms').update({ [field]: type }).eq('code', roomCode);
 
-    // Vérifier si les deux ont choisi
     const { data } = await sb.from('rooms').select('*').eq('code', roomCode).single();
     if (data.player1_choice && data.player2_choice) {
       await sb.from('rooms').update({ status: 'reveal' }).eq('code', roomCode);
@@ -330,7 +329,7 @@ renderTypeButtons();
         <div style="font-weight:bold;margin-bottom:8px">${name}</div>
         <img src="${poke.sprite}" alt="${poke.name}"/>
         <h3>${poke.name}</h3>
-        <p>${typeLabel[type]}</p>
+        <p>${typeLabel[type] || type}</p>
       `;
       row.appendChild(card);
     });
@@ -338,7 +337,7 @@ renderTypeButtons();
 
   async function playAgain() {
     pickRandomTypes();
-renderTypeButtons();
+    renderTypeButtons();
     await sb.from('rooms').update({
       player1_choice: null,
       player2_choice: null,
